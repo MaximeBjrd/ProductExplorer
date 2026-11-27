@@ -617,7 +617,8 @@ fun ProductCatalogScreen(
         item {
             Text(
                 text = "Explorez une sélection de produits disponibles localement.",
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
             )
         }
         item {
@@ -647,7 +648,8 @@ fun ProductCatalogScreen(
         item {
             Text(
                 text = "${products.size} produit(s) affiché(s)",
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
             )
         }
         items(

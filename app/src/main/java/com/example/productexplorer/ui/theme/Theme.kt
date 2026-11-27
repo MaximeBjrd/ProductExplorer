@@ -15,26 +15,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF7DDBB0),
-    onPrimary = Color(0xFF003826),
-    secondary = Color(0xFFB7CCBC),
-    background = Color(0xFF101411),
-    onBackground = Color(0xFFE0E4DF),
-    surface = Color(0xFF1C211D),
-    onSurface = Color(0xFFE0E4DF)
-)
-
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF006C4C),
-    onPrimary = Color.White,
-    secondary = Color(0xFF4F6357),
-    background = Color(0xFFF7FBF6),
-    onBackground = Color(0xFF191C1A),
-    surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF191C1A)
+    primary = Color(0xFF4F46E5), onPrimary = Color.White,
+    primaryContainer = Color(0xFFE0E7FF), onPrimaryContainer = Color(0xFF1E1B4B),
+    secondary = Color(0xFF0F766E),
+    background = Color(0xFFF8FAFF), onBackground = Color(0xFF191C24),
+    surface = Color.White, onSurface = Color(0xFF191C24)
 )
-
+private val DarkColorScheme = darkColorScheme(
+    primary = Color(0xFFA5B4FC), onPrimary = Color(0xFF1E1B4B),
+    primaryContainer = Color(0xFF3730A3), onPrimaryContainer = Color(0xFFE0E7FF),
+    secondary = Color(0xFF5EEAD4),
+    background = Color(0xFF0F1117), onBackground = Color(0xFFE5E7EB),
+    surface = Color(0xFF1A1D27), onSurface = Color(0xFFE5E7EB)
+)
 
 @Composable
 fun ProductExplorerTheme(
