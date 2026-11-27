@@ -29,10 +29,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -51,19 +55,46 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            ProductExplorerTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    ProductCatalogContainer(
-                        onProductClick = {
-                            // Plus tard : ouvrir le détail du produit
-                        },
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+            var darkMode by rememberSaveable { mutableStateOf(false) }
 
+            ProductExplorerTheme(darkTheme = darkMode) {
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = if (darkMode) "Mode sombre" else "Mode clair")
+                            Switch(
+                                checked = darkMode,
+                                onCheckedChange = { darkMode = it }
+                            )
+                        }
+
+                        ProductCatalogContainer(
+                            onProductClick = {
+                                // Plus tard : ouvrir le détail du produit
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+enum class ProductSortOption {
+    RATING_DESC,
+    PRICE_ASC,
+    PRICE_DESC
 }
 
 data class ProductCatalogUiState(
@@ -71,14 +102,20 @@ data class ProductCatalogUiState(
     val categories: List<String> = emptyList(),
     val searchQuery: String = "",
     val showOnlyInStock: Boolean = false,
-    val favoriteProductIds: List<Int> = emptyList()
+    val favoriteProductIds: List<Int> = emptyList(),
+    val sortOption: ProductSortOption = ProductSortOption.RATING_DESC
 )
 
 class ProductCatalogViewModel : ViewModel() {
     private val allProducts: List<ProductUi> = sampleProducts()
     private val allCategories: List<String> = sampleCategories()
 
-    private val _uiState = MutableStateFlow(ProductCatalogUiState(products = allProducts, categories = allCategories))
+    private val _uiState = MutableStateFlow(
+        ProductCatalogUiState(
+            products = sortProducts(allProducts, ProductSortOption.RATING_DESC),
+            categories = allCategories
+        )
+    )
     val uiState: StateFlow<ProductCatalogUiState> = _uiState.asStateFlow()
 
     private fun filterProducts(searchQuery: String, showOnlyInStock: Boolean): List<ProductUi> {
@@ -92,11 +129,25 @@ class ProductCatalogViewModel : ViewModel() {
         }
     }
 
+    private fun sortProducts(
+        products: List<ProductUi>,
+        sortOption: ProductSortOption
+    ): List<ProductUi> {
+        return when (sortOption) {
+            ProductSortOption.RATING_DESC -> products.sortedByDescending { it.rating }
+            ProductSortOption.PRICE_ASC -> products.sortedBy { it.price }
+            ProductSortOption.PRICE_DESC -> products.sortedByDescending { it.price }
+        }
+    }
+
     fun onSearchQueryChange(newValue: String) {
         _uiState.update { currentState ->
             currentState.copy(
                 searchQuery = newValue,
-                products = filterProducts(newValue, currentState.showOnlyInStock)
+                products = sortProducts(
+                    filterProducts(newValue, currentState.showOnlyInStock),
+                    currentState.sortOption
+                )
             )
         }
     }
@@ -106,7 +157,22 @@ class ProductCatalogViewModel : ViewModel() {
             val newShowOnlyInStock = !currentState.showOnlyInStock
             currentState.copy(
                 showOnlyInStock = newShowOnlyInStock,
-                products = filterProducts(currentState.searchQuery, newShowOnlyInStock)
+                products = sortProducts(
+                    filterProducts(currentState.searchQuery, newShowOnlyInStock),
+                    currentState.sortOption
+                )
+            )
+        }
+    }
+
+    fun onSortChange(newSortOption: ProductSortOption) {
+        _uiState.update { currentState ->
+            currentState.copy(
+                sortOption = newSortOption,
+                products = sortProducts(
+                    filterProducts(currentState.searchQuery, currentState.showOnlyInStock),
+                    newSortOption
+                )
             )
         }
     }
@@ -307,7 +373,9 @@ fun ProductAvailabilityCard(stock: Int, shippingInformation: String, modifier: M
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = "Stock : $stock unités",
+                text = if (stock == 0) "Rupture de stock" else "Stock : $stock unités",
+                color = if (stock == 0) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
@@ -585,6 +653,8 @@ fun ProductCatalogContainer(
         favoriteProductIds = uiState.favoriteProductIds,
         onFavoriteClick = viewModel::onFavoriteClick,
         onProductClick = onProductClick,
+        sortOption = uiState.sortOption,
+        onSortChange = viewModel::onSortChange,
         modifier = modifier
     )
 }
@@ -600,6 +670,8 @@ fun ProductCatalogScreen(
     favoriteProductIds: List<Int>,
     onFavoriteClick: (Int) -> Unit,
     onProductClick: (ProductUi) -> Unit,
+    sortOption: ProductSortOption,
+    onSortChange: (ProductSortOption) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -639,6 +711,38 @@ fun ProductCatalogScreen(
                     } else {
                         "Afficher uniquement les produits en stock"
                     }
+                )
+            }
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Trier les produits",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(onClick = { onSortChange(ProductSortOption.RATING_DESC) }) {
+                        Text("Note ↓")
+                    }
+                    Button(onClick = { onSortChange(ProductSortOption.PRICE_ASC) }) {
+                        Text("Prix ↑")
+                    }
+                    Button(onClick = { onSortChange(ProductSortOption.PRICE_DESC) }) {
+                        Text("Prix ↓")
+                    }
+                }
+                Text(
+                    text = when (sortOption) {
+                        ProductSortOption.RATING_DESC -> "Tri actuel : meilleure note"
+                        ProductSortOption.PRICE_ASC -> "Tri actuel : prix croissant"
+                        ProductSortOption.PRICE_DESC -> "Tri actuel : prix décroissant"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -693,6 +797,22 @@ fun ProductListItem(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.secondary
             )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (product.stock == 0) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text(
+                        text = "Rupture de stock",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
@@ -751,7 +871,7 @@ fun CategoryRow(categories: List<String>, modifier: Modifier = Modifier) {
 //    }
 //}
 
-@Preview(showBackground = true, name = "Catalogue - Dark Theme", heightDp = 1250)
+@Preview(showBackground = true, name = "Catalogue - Dark Theme", heightDp = 1400)
 @Composable
 fun ProductCatalogScreenDarkPreview() {
     ProductExplorerTheme(darkTheme = true) {
@@ -764,7 +884,9 @@ fun ProductCatalogScreenDarkPreview() {
             onToggleStockFilter = {},
             favoriteProductIds = listOf(2),
             onFavoriteClick = {},
-            onProductClick = {}
+            onProductClick = {},
+            sortOption = ProductSortOption.RATING_DESC,
+            onSortChange = {}
         )
     }
 }
@@ -781,7 +903,7 @@ fun ProductCatalogScreenDarkPreview() {
 //    }
 //}
 
-@Preview(showBackground = true, name = "Catalogue - Light Theme", heightDp = 1250)
+@Preview(showBackground = true, name = "Catalogue - Light Theme", heightDp = 1400)
 @Composable
 fun ProductCatalogScreenLightPreview() {
     ProductExplorerTheme(darkTheme = false) {
@@ -794,7 +916,9 @@ fun ProductCatalogScreenLightPreview() {
             onToggleStockFilter = {},
             favoriteProductIds = listOf(1),
             onFavoriteClick = {},
-            onProductClick = {}
+            onProductClick = {},
+            sortOption = ProductSortOption.RATING_DESC,
+            onSortChange = {}
         )
     }
 }
